@@ -7,10 +7,6 @@ app = Flask(__name__)
 def hello_world():
     return "hello world"
 
-@app.route("hello/<name>")
-def hello_name(name):
-    return template_rendered('hello.html', name=name)
-
 @app.route("/users/<username>")
 def hello_user(username: str):
     return f"Hello, {username}"

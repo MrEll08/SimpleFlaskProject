@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Список пользователей</title>
+</head>
+<body>
+    <p><strong>Вы:</strong> {{ current_user }}</p>
+
+    <h1>👑 Админы</h1>
+    <ul>
+        {% for admin in admins %}
+            <li>
+                {% if admin[0] == 'maximka' %}
+                <strong>👑 {{ admin[0] }} (главный админ)</strong>
+                {% elif admin[0] == current_user %}
+                    <strong>{{ admin[0] }} (вы)</strong>
+                {% else %}
+                    {{ admin[0] }}
+                {% endif %}
+            </li>
+        {% else %}
+            <li><em>Нет админов</em></li>
+        {% endfor %}
+    </ul>
+
+    <h1>✅ Активные пользователи</h1>
+    <ul>
+        {% for user in users %}
+            <li>
+                {% if user[0] == current_user %}
+                    <strong>{{ user[0] }} (вы)</strong>
+                {% else %}
+                    {{ user[0] }}
+                    <form action="/toggle_user_ban" method="POST" style="display:inline;">
+                        <input type="hidden" name="user_to_toggle" value="{{ user[0] }}">
+                        <button type="submit">Забанить</button>
+                    </form>
+                {% endif %}
+            </li>
+        {% else %}
+            <li><em>Нет активных пользователей</em></li>
+        {% endfor %}
+    </ul>
+
+    <h1>⛔ Забаненные пользователи</h1>
+    <ul>
+        {% for banned in banned_users %}
+            <li>
+                {% if banned[0] == current_user %}
+                    <strong>{{ banned[0] }} (вы)</strong>
+                {% else %}
+                    {{ banned[0] }}
+                    <form action="/toggle_user_ban" method="POST" style="display:inline;">
+                        <input type="hidden" name="user_to_toggle" value="{{ banned[0] }}">
+                        <button type="submit">Разбанить</button>
+                    </form>
+                {% endif %}
+            </li>
+        {% else %}
+            <li><em>Никто не забанен</em></li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

@@ -2,3 +2,5 @@
 !.gitignore
 
 server/users.db
+configure_database.py
+create_database.py

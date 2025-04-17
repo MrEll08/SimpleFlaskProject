@@ -1,3 +1,5 @@
+from functools import wraps
+
 from flask import Flask
 from flask import redirect, request, render_template, url_for
 import sqlite3
@@ -13,12 +15,75 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY  # Замени на надёжный ключ
 
 
+def get_user():
+    flag, payload = check_cookie()
+    if flag != 1:
+        return None
+    return payload["user_name"]
+
+
+def is_admin(user):
+    if user is None:
+        return False
+    flag, payload = check_cookie()
+    if flag != 1:
+        return False
+    con = sqlite3.connect("server/users.db")
+    cur = con.cursor()
+    admin_id = cur.execute("""
+                           SELECT admin_id
+                           FROM admin
+                           WHERE user_login = ?
+                           """, (user,)).fetchone()
+    return admin_id is not None
+
+
+def only_admin(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        user = get_user()
+        if not is_admin(user):
+            return "Действие запрещено"
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def only_superuser(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        user = get_user()
+        if user != "maximka":
+            return "Действие запрещено"
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def only_normal_user(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        user = get_user()
+        if user is None:
+            return "Вы не вошли в аккаунт"
+
+        con = sqlite3.connect("server/users.db")
+        cur = con.cursor()
+        is_banned = cur.execute("""SELECT banned
+                                   FROM user
+                                   WHERE user_login = ?""", (user,)).fetchone()[0]
+        if is_banned:
+            return "Вы не можете этого сделать, так как были забанены"
+        return func(*args, **kwargs)
+    return wrapper
+
+
 def insert_db(login, password):
     con = sqlite3.connect("server/users.db")
     cur = con.cursor()
     try:
         cur.execute("""
-                    INSERT INTO users(user_login, user_password)
+                    INSERT INTO user(user_login, user_password)
                     VALUES (?, ?)
                     """, (login, password))
         con.commit()
@@ -33,7 +98,6 @@ def check_cookie():
     token = request.cookies.get("jwt")
     if token is None:
         return [0, None]
-    print(token)
     try:
         # Проверка подписи
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
@@ -65,7 +129,6 @@ def register_logic():
 
 @app.route("/login")
 def login():
-    check_cookie()
     return render_template("login.html")
 
 
@@ -78,7 +141,7 @@ def login_logic():
     cur = con.cursor()
     user = cur.execute("""
                        SELECT user_id
-                       FROM users
+                       FROM user
                        WHERE user_login = ?
                          AND user_password = ?
                        """, (login, password)).fetchone()
@@ -86,8 +149,7 @@ def login_logic():
 
     if user is not None:
         token_payload = {
-            "user": login,
-            "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+            "user_name": login,
         }
         token = jwt.encode(token_payload, app.config["SECRET_KEY"], algorithm="HS256")
 
@@ -104,62 +166,171 @@ def hello_index(username):
     return f"Вы зашли под пользователем {username}"
 
 
-@app.route("/feed")
-def feed():
+def get_posts():
     con = sqlite3.connect("server/users.db")
     cur = con.cursor()
     posts = cur.execute("""
                         SELECT post_id, user_login, post_text
                         FROM (SELECT *
-                              FROM posts
+                              FROM post
                               ORDER BY post_id DESC
                               LIMIT 20)
                         ORDER BY post_id
                         """).fetchall()
     con.close()
-    if len(posts) == 0:
-        return "Пока не было постов"
+    return posts
+
+
+@app.route("/feed")
+def feed():
+    posts = get_posts()
     return render_template("feed.html", posts=posts)
 
 
 @app.route("/make_post", methods=["POST"])
+@only_normal_user
 def make_post_logic():
-    flag, jwt_payload = check_cookie()
-    if flag != 1:
+    user = get_user()
+    if user is None:
         return "Необходимо корректно залогиниться, чтобы делать посты"
     post = request.form["post"]
-    user_login = jwt_payload["user"]
 
     con = sqlite3.connect("server/users.db")
     cur = con.cursor()
 
     cur.execute("""
-                INSERT INTO posts(user_login, post_text)
-                VALUES (?, ?)""", (user_login, post))
+                INSERT INTO post(user_login, post_text)
+                VALUES (?, ?)""", (user, post))
 
     con.commit()
     con.close()
-    return redirect("/feed#make_post")
+    return redirect(request.referrer + "#make_post")
+
+
+@app.route("/admin")
+@only_admin
+def admin():
+    posts = get_posts()
+    return render_template("admin.html", posts=posts)
+
+
+@app.route("/delete_post", methods=["POST"])
+@only_admin
+def delete_post():
+    post_id = request.form["post_id"]
+
+    con = sqlite3.connect("server/users.db")
+    cur = con.cursor()
+    cur.execute("""
+                DELETE
+                FROM post
+                WHERE post_id = ?
+                """, (post_id,))
+    con.commit()
+    con.close()
+
+    return redirect("/admin#make_post")
+
+
+@app.route("/user_list")
+def user_list():
+    user = get_user()
+
+    con = sqlite3.connect("server/users.db")
+    cur = con.cursor()
+    admins = cur.execute("""
+                         SELECT user_login
+                         FROM admin""").fetchall()
+    users = cur.execute("""
+                        SELECT user_login
+                        FROM user
+                                 LEFT JOIN admin USING (user_login)
+                        WHERE admin_id IS NULL
+                          AND banned = 0
+                        """).fetchall()
+    banned = cur.execute("""
+                         SELECT user_login
+                         FROM user
+                         WHERE banned = 1
+                         """).fetchall()
+    if user == "maximka":
+        return render_template("user_list_super.html",
+                               current_user=user,
+                               admins=admins, users=users, banned_users=banned)
+    if is_admin(user):
+        return render_template("user_list_admin.html",
+                               current_user=user,
+                               admins=admins, users=users, banned_users=banned)
+
+    return render_template("user_list_standart.html",
+                           current_user=user or "вы не вошли в систему",
+                           admins=admins, users=users, banned_users=banned)
+
+
+@app.route("/toggle_user_ban", methods=["POST"])
+@only_admin
+def toggle_user_ban():
+    user_to_toggle = request.form["user_to_toggle"]
+    con = sqlite3.connect("server/users.db")
+    cur = con.cursor()
+    now_state = cur.execute("""
+                            SELECT banned
+                            FROM user
+                            WHERE user_login = ?
+                            """, (user_to_toggle,)).fetchone()
+    if now_state is None:
+        return "Вы пытаетесь применить команду для неверного пользователя"
+    now_state = now_state[0]
+    cur.execute("""
+                UPDATE user
+                SET banned = ?
+                WHERE user_login = ?
+                """, (now_state ^ 1, user_to_toggle))
+    con.commit()
+    con.close()
+    return redirect("/user_list")
+
+
+@app.route("/make_admin", methods=["POST"])
+@only_superuser
+def make_admin():
+    user = get_user()
+    if user != "maximka":
+        return "У вас нет прав на это действие"
+
+    user_to_promote = request.form["user_to_promote"]
+
+    con = sqlite3.connect("server/users.db")
+    cur = con.cursor()
+    cur.execute("""
+                INSERT INTO admin(user_login)
+                VALUES (?)
+                """, (user_to_promote,))
+    con.commit()
+    con.close()
+    return redirect("/user_list")
+
+
+@app.route("/disable_admin", methods=["POST"])
+@only_superuser
+def disable_admin():
+    user = get_user()
+    if user != "maximka":
+        return "У вас нет прав на это действие"
+
+    user_to_disable = request.form["user_to_disable"]
+
+    con = sqlite3.connect("server/users.db")
+    cur = con.cursor()
+    cur.execute("""
+                DELETE
+                FROM admin
+                WHERE user_login = ?
+                """, (user_to_disable,))
+    con.commit()
+    con.close()
+    return redirect("/user_list")
 
 
 if __name__ == '__main__':
-    con = sqlite3.connect("server/users.db")
-    cur = con.cursor()
-    cur.executescript("""
-                      CREATE TABLE IF NOT EXISTS users
-                      (
-                          user_id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                          user_login    TEXT UNIQUE,
-                          user_password TEXT
-                      );
-                      CREATE TABLE IF NOT EXISTS posts
-                      (
-                          post_id    INTEGER PRIMARY KEY AUTOINCREMENT,
-                          user_login INTEGER,
-                          post_text  TEXT
-                      );
-                      """)
-    con.commit()
-    con.close()
-
     app.run(debug=True)

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Лента постов</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .post { border-bottom: 1px solid #ccc; padding: 10px 0; }
+        .user { font-weight: bold; color: #2c3e50; }
+        .text { margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Лента постов</h1>
+
+    {% for post in posts %}
+    <div class="post">
+        <div class="user">{{ post[1] }}</div>
+        <div class="text">{{ post[2] }}</div>
+    </div>
+    {% else %}
+    <p>Пока что нет постов.</p>
+    {% endfor %}
+</body>
+<body>
+  <div class="container">
+    <h2 id="make_post">Новый пост</h2>
+    <form action="/make_post" method="POST">
+      <textarea name="post" placeholder="Напишите что-нибудь..."></textarea>
+      <br>
+      <button type="submit">Отправить</button>
+    </form>
+  </div>
+</body>
+</html>

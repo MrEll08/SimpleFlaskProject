@@ -1,3 +1,4 @@
+import os
 from functools import wraps
 
 from flask import Flask
@@ -8,11 +9,13 @@ import jwt
 import datetime
 from flask import make_response
 from mistune.plugins.ruby import render_ruby
+from werkzeug.utils import secure_filename
 
-SECRET_KEY = "your_secret_key_here"
+SECRET_KEY = "0YHQtdC60YDQtdGC0L3Ri9C5INC60LvRjtGH"
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = SECRET_KEY  # Замени на надёжный ключ
+app.config["SECRET_KEY"] = SECRET_KEY
+app.config["UPLOAD_FOLDER"] = "static/uploads/"
 
 
 def get_user():
@@ -170,7 +173,7 @@ def get_posts():
     con = sqlite3.connect("server/users.db")
     cur = con.cursor()
     posts = cur.execute("""
-                        SELECT post_id, user_login, post_text
+                        SELECT *
                         FROM (SELECT *
                               FROM post
                               ORDER BY post_id DESC
@@ -184,6 +187,7 @@ def get_posts():
 @app.route("/feed")
 def feed():
     posts = get_posts()
+    print(posts)
     return render_template("feed.html", posts=posts)
 
 
@@ -191,16 +195,21 @@ def feed():
 @only_normal_user
 def make_post_logic():
     user = get_user()
-    if user is None:
-        return "Необходимо корректно залогиниться, чтобы делать посты"
     post = request.form["post"]
+
+    file = request.files.get("image")
+    savepath = None
+    if file and file.filename != "":
+        filename = secure_filename(file.filename)
+        savepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(savepath)
 
     con = sqlite3.connect("server/users.db")
     cur = con.cursor()
 
     cur.execute("""
-                INSERT INTO post(user_login, post_text)
-                VALUES (?, ?)""", (user, post))
+                INSERT INTO post(user_login, post_text, post_image)
+                VALUES (?, ?, ?)""", (user, post, savepath or "no image here"))
 
     con.commit()
     con.close()

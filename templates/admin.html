@@ -31,6 +31,9 @@
 <div class="post">
     <div class="user">{{ post[1] }}</div>
     <div class="text">{{ post[2] }}</div>
+    {% if post[3] != "no image here" %}
+    <img src="{{ post[3] }}" name="image" width="200">
+    {% endif %}
 
     <form action="/delete_post" method="POST">
         <input type="hidden" name="post_id" value="{{ post[0] }}">
@@ -44,6 +47,7 @@
 <body>
 <div class="container">
     <h2 id="make_post">Новый пост</h2>
+    <p><strong>Вы:</strong> {{ current_user }}</p>
     <form action="/make_post" method="POST">
         <textarea name="post" placeholder="Напишите что-нибудь..."></textarea>
         <br>
@@ -51,4 +55,13 @@
     </form>
 </div>
 </body>
+
+<div class="redirect">
+    <form action="/user_list" method="GET" style="display:inline;">
+        <button type="submit">Список пользователей</button>
+    </form>
+    <form action="/feed" method="GET" style="display:inline;">
+        <button type="submit">Обычная версия</button>
+    </form>
+</div>
 </html>

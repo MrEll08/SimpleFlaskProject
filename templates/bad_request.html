@@ -2,15 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Hello Page</title>
+    <title>Title</title>
 </head>
-<body>
-<p>Вы вошли под именем {{ username }}</p>
+
+<p>{{ text }}</p>
 <form action="/feed" method="GET" style="display:inline;">
     <button type="submit">Лента постов</button>
 </form>
 <form action="/user_list" method="GET" style="display:inline;">
     <button type="submit">Список пользователей</button>
 </form>
+<body>
+
 </body>
 </html>

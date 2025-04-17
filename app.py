@@ -1,7 +1,8 @@
 import os
 from functools import wraps
+from urllib.parse import urlparse
 
-from flask import Flask
+from flask import Flask, session, flash
 from flask import redirect, request, render_template, url_for
 import sqlite3
 
@@ -40,13 +41,21 @@ def is_admin(user):
                            """, (user,)).fetchone()
     return admin_id is not None
 
+@app.route("/bad_request")
+def bad_request_index():
+    return render_template("bad_request.html", text=session["bad_request"])
+
+
+def bad_request(text):
+    session["bad_request"] = text
+    return redirect("/bad_request")
 
 def only_admin(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         user = get_user()
         if not is_admin(user):
-            return "Действие запрещено"
+            return bad_request("Действие запрещено")
         return func(*args, **kwargs)
 
     return wrapper
@@ -57,7 +66,7 @@ def only_superuser(func):
     def wrapper(*args, **kwargs):
         user = get_user()
         if user != "maximka":
-            return "Действие запрещено"
+            return bad_request("Действие запрещено")
         return func(*args, **kwargs)
 
     return wrapper
@@ -68,7 +77,7 @@ def only_normal_user(func):
     def wrapper(*args, **kwargs):
         user = get_user()
         if user is None:
-            return "Вы не вошли в аккаунт"
+            return render_template("login_required.html")
 
         con = sqlite3.connect("server/users.db")
         cur = con.cursor()
@@ -76,7 +85,7 @@ def only_normal_user(func):
                                    FROM user
                                    WHERE user_login = ?""", (user,)).fetchone()[0]
         if is_banned:
-            return "Вы не можете этого сделать, так как были забанены"
+            return bad_request("Вы не можете этого сделать, так как были забанены")
         return func(*args, **kwargs)
     return wrapper
 
@@ -125,9 +134,10 @@ def register_logic():
     user_login = request.form["login"]
     user_password = request.form["password"]
     if insert_db(user_login, user_password):
-        return "Вы успешно зарегестрированы"
+        flash("Вы успешно зарегестрированы, теперь войдите")
+        return redirect("/login")
 
-    return "Такой пользователь уже существует, регистрация не прошла"
+    return bad_request("Такой пользователь уже существует, регистрация не прошла")
 
 
 @app.route("/login")
@@ -161,12 +171,14 @@ def login_logic():
 
         return response
     else:
-        return "Неверное имя пользователя или пароль"
+        return bad_request("Неверное имя пользователя или пароль")
 
 
-@app.route("/hello/<username>")
-def hello_index(username):
-    return f"Вы зашли под пользователем {username}"
+@app.route("/hello")
+@only_normal_user
+def hello_index():
+    user = get_user()
+    return render_template("hello.html", username=user)
 
 
 def get_posts():
@@ -187,8 +199,8 @@ def get_posts():
 @app.route("/feed")
 def feed():
     posts = get_posts()
-    print(posts)
-    return render_template("feed.html", posts=posts)
+    user = get_user()
+    return render_template("feed.html", current_user=user or "не вошли", posts=posts)
 
 
 @app.route("/make_post", methods=["POST"])
@@ -220,7 +232,8 @@ def make_post_logic():
 @only_admin
 def admin():
     posts = get_posts()
-    return render_template("admin.html", posts=posts)
+    user = get_user()
+    return render_template("admin.html", current_user=user or "не вошли", posts=posts)
 
 
 @app.route("/delete_post", methods=["POST"])
@@ -288,7 +301,7 @@ def toggle_user_ban():
                             WHERE user_login = ?
                             """, (user_to_toggle,)).fetchone()
     if now_state is None:
-        return "Вы пытаетесь применить команду для неверного пользователя"
+        return bad_request("Вы пытаетесь применить команду для неверного пользователя")
     now_state = now_state[0]
     cur.execute("""
                 UPDATE user
@@ -303,10 +316,6 @@ def toggle_user_ban():
 @app.route("/make_admin", methods=["POST"])
 @only_superuser
 def make_admin():
-    user = get_user()
-    if user != "maximka":
-        return "У вас нет прав на это действие"
-
     user_to_promote = request.form["user_to_promote"]
 
     con = sqlite3.connect("server/users.db")
@@ -323,12 +332,7 @@ def make_admin():
 @app.route("/disable_admin", methods=["POST"])
 @only_superuser
 def disable_admin():
-    user = get_user()
-    if user != "maximka":
-        return "У вас нет прав на это действие"
-
     user_to_disable = request.form["user_to_disable"]
-
     con = sqlite3.connect("server/users.db")
     cur = con.cursor()
     cur.execute("""

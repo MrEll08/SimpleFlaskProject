@@ -43,6 +43,7 @@
 <body>
 <div class="container">
     <h2 id="make_post">Новый пост</h2>
+    <p><strong>Вы:</strong> {{ current_user }}</p>
     <form action="/make_post" method="POST" enctype="multipart/form-data">
         <textarea name="post" placeholder="Напишите что-нибудь..."></textarea>
         <br>
@@ -52,4 +53,21 @@
     </form>
 </div>
 </body>
+
+<div class="redirect">
+    <form action="/user_list" method="GET" style="display:inline;">
+        <button type="submit">Список пользователей</button>
+    </form>
+    <form action="/admin" method="GET" style="display:inline;">
+        <button type="submit">Админка</button>
+    </form>
+    {% if current_user == "не вошли"%}
+        <form action="/register" method="GET" style="display:inline;">
+            <button type="submit">Зарегистрироваться</button>
+        </form>
+        <form action="/login" method="GET" style="display:inline;">
+            <button type="submit">Войти</button>
+        </form>
+    {% endif %}
+</div>
 </html>

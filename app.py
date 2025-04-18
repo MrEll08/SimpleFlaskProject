@@ -181,6 +181,11 @@ def hello_index():
     return render_template("hello.html", username=user)
 
 
+@app.route("/")
+def home_index():
+    return render_template("home.html")
+
+
 def get_posts():
     con = sqlite3.connect("server/users.db")
     cur = con.cursor()

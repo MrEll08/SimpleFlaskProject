@@ -1,4 +1,5 @@
 A simple project to learn Flask framework.
+Before running app.py you need to run create_database.py to create database :)
 
 / - home page
 

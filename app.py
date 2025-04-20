@@ -1,6 +1,5 @@
 import os
 from functools import wraps
-from urllib.parse import urlparse
 
 from flask import Flask, session, flash
 from flask import redirect, request, render_template, url_for
@@ -9,7 +8,6 @@ import sqlite3
 import jwt
 import datetime
 from flask import make_response
-from mistune.plugins.ruby import render_ruby
 from werkzeug.utils import secure_filename
 
 SECRET_KEY = "0YHQtdC60YDQtdGC0L3Ri9C5INC60LvRjtGH"
@@ -41,6 +39,7 @@ def is_admin(user):
                            """, (user,)).fetchone()
     return admin_id is not None
 
+
 @app.route("/bad_request")
 def bad_request_index():
     return render_template("bad_request.html", text=session["bad_request"])
@@ -49,6 +48,7 @@ def bad_request_index():
 def bad_request(text):
     session["bad_request"] = text
     return redirect("/bad_request")
+
 
 def only_admin(func):
     @wraps(func)
@@ -87,23 +87,21 @@ def only_normal_user(func):
         if is_banned:
             return bad_request("Вы не можете этого сделать, так как были забанены")
         return func(*args, **kwargs)
+
     return wrapper
 
 
 def insert_db(login, password):
-    con = sqlite3.connect("server/users.db")
-    cur = con.cursor()
     try:
-        cur.execute("""
-                    INSERT INTO user(user_login, user_password)
-                    VALUES (?, ?)
-                    """, (login, password))
-        con.commit()
+        with sqlite3.connect("server/users.db") as con:
+            cur = con.cursor()
+            cur.execute("""
+                        INSERT INTO user(user_login, user_password)
+                        VALUES (?, ?)
+                        """, (login, password))
         return True
-    except sqlite3.IntegrityError as e:
+    except sqlite3.IntegrityError:
         return False
-    finally:
-        con.close()
 
 
 def check_cookie():
@@ -351,4 +349,4 @@ def disable_admin():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)

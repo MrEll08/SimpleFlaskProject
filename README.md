@@ -4,6 +4,16 @@ A simple Flask web application using SQLite, fully containerized with Docker.
 
 ---
 
+## 🔧 Functionality
+
+- Users can **register and log in** to their accounts.  
+- There's a **post feed**, where users can **create messages** and optionally **attach photos**.  
+- **Admins** can **delete any posts** from the feed.  
+- A **User List page** (`user_list`) displays all users, showing their roles: **admins**, **regular users**, and **banned users**.  
+- Admins can **ban or unban users** from the User List page.  
+- The **superuser** (main admin), `maximka`, can also **promote or demote admins** there.
+
+
 ## 🚀 Getting Started
 
 ### 1. Clone the Repository
@@ -80,4 +90,4 @@ http://localhost:8080
 | `/login`     | Login page for existing users                                                                                                                              |
 | `/feed`      | Public feed where users can see posts                                                                                                                      |
 | `/admin`     | Admin interface for managing the feed (admins can delete messages)                                                                                         |
-| `/user_list` | List of all users. Here admins can ban or unban users. The superuser (maximka) can promote other users to admins or revoke admin rights from existing ones |
+| `/user_list` | List of all users. Here admins can ban or unban users. The superuser (maximka) can promote or demote admins |

@@ -73,11 +73,11 @@ http://localhost:8080
 
 ## Available Pages
 
-| Route        | Description                                                                 |
-|--------------|-----------------------------------------------------------------------------|
-| `/`          | Home page of the application                                                |
-| `/register`  | User registration page                                                      |
-| `/login`     | Login page for existing users                                               |
-| `/feed`      | Public feed where users can see posts                                       |
-| `/admin`     | Admin interface for managing the feed (admins can delete messages)          |
-| `/user_list` | List of all users (admins can ban or unban users from here)                 |
+| Route        | Description                                                                                                                                                |
+|--------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/`          | Home page of the application                                                                                                                               |
+| `/register`  | User registration page                                                                                                                                     |
+| `/login`     | Login page for existing users                                                                                                                              |
+| `/feed`      | Public feed where users can see posts                                                                                                                      |
+| `/admin`     | Admin interface for managing the feed (admins can delete messages)                                                                                         |
+| `/user_list` | List of all users. Here admins can ban or unban users. The superuser (maximka) can promote other users to admins or revoke admin rights from existing ones |
